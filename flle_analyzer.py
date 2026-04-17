@@ -1,92 +1,106 @@
+"""
+File Analyzer Module
+Modul ini menyediakan fungsionalitas untuk menganalisis properti dasar sebuah file,
+termasuk ukuran dan waktu modifikasi terakhir.
+"""
+
 import os
 import datetime
 
+BYTES_PER_KB = 1024
+DATETIME_FORMAT = "%d-%m-%Y %H:%M:%S"
+SEPARATOR_WIDTH = 40
+
+
+class FileNotFoundError(Exception):
+    """Exception khusus untuk menangani kasus file tidak ditemukan."""
+    pass
+
 
 class FileAnalyzer:
-    """
-    Class untuk menganalisis properti dasar dari sebuah file.
-    """
+    """Menganalisis properti dasar dari sebuah file di sistem."""
 
-    def __init__(self, file_path):
+    def __init__(self, file_path: str):
         """
-        Constructor yang menerima path file dan memeriksa keberadaannya.
-        """
-        self.file_path = file_path
-        self.file_name = os.path.basename(file_path)
-        self.__file_ada = os.path.exists(file_path)
-        self.__file_size_bytes = 0
+        Inisialisasi FileAnalyzer dengan path file yang diberikan.
 
-        if self.__file_ada:
-            # Mengambil ukuran file (dalam bytes) dan menyimpannya di atribut privat
-            self.__file_size_bytes = os.path.getsize(file_path)
-        else:
-            print(f"ERROR: File '{file_path}' tidak ditemukan.")
-            self.__file_ada = False
+        Args:
+            file_path: Path lengkap atau relatif ke file yang akan dianalisis.
 
-    def get_file_size(self, unit="bytes"):
+        Raises:
+            FileNotFoundError: Jika file tidak ditemukan di path yang diberikan.
         """
-        Mengembalikan ukuran file. Dapat dikonversi ke Kilobytes (KB).
-        """
-        if not self.__file_ada:
-            return 0
+        self._file_path = file_path
+        self._file_name = os.path.basename(file_path)
+        self._validate_file_exists()
+        self._file_size_bytes = os.path.getsize(file_path)
 
+    def _validate_file_exists(self):
+        """Memvalidasi keberadaan file; raise exception jika tidak ada."""
+        if not os.path.exists(self._file_path):
+            raise FileNotFoundError(
+                f"File '{self._file_path}' tidak ditemukan."
+            )
+
+    def get_file_size(self, unit: str = "bytes") -> float:
+        """
+        Mengembalikan ukuran file dalam satuan yang diminta.
+
+        Args:
+            unit: Satuan ukuran — 'bytes' (default) atau 'kb'.
+
+        Returns:
+            Ukuran file sebagai float dalam satuan yang dipilih.
+        """
         if unit.lower() == "kb":
-            # Konversi dari bytes ke KB (1 KB = 1024 Bytes)
-            size_kb = self.__file_size_bytes / 1024
-            return size_kb
-        else:
-            # Default mengembalikan dalam bytes
-            return self.__file_size_bytes
+            return self._file_size_bytes / BYTES_PER_KB
+        return float(self._file_size_bytes)
 
-    def get_modification_time(self):
+    def get_modification_time(self) -> str:
         """
-        Mengembalikan waktu modifikasi terakhir file dalam format yang dapat dibaca.
+        Mengembalikan waktu modifikasi terakhir file sebagai string terformat.
+
+        Returns:
+            String waktu dalam format 'DD-MM-YYYY HH:MM:SS'.
         """
-        if not self.__file_ada:
-            return "N/A"
+        timestamp = os.path.getmtime(self._file_path)
+        modification_datetime = datetime.datetime.fromtimestamp(timestamp)
+        return modification_datetime.strftime(DATETIME_FORMAT)
 
-        # 1. Dapatkan timestamp (detik sejak epoch)
-        timestamp = os.path.getmtime(self.file_path)
+    def print_report(self):
+        """Mencetak laporan analisis file ke konsol."""
+        separator = "=" * SEPARATOR_WIDTH
+        size_kb = self.get_file_size(unit="kb")
+        modification_time = self.get_modification_time()
 
-        # 2. Konversi timestamp ke objek datetime
-        dt_object = datetime.datetime.fromtimestamp(timestamp)
+        print(f"\n{separator}")
+        print(f"Laporan Analisis File: {self._file_name}")
+        print(separator)
+        print(f"Nama File        : {self._file_name}")
+        print(f"Path File        : {self._file_path}")
+        print(f"Ukuran File      : {size_kb:.2f} KB ({self._file_size_bytes} Bytes)")
+        print(f"Waktu Modifikasi : {modification_time}")
+        print(separator)
 
-        # 3. Format ke string yang mudah dibaca
-        formatted_time = dt_object.strftime("%d-%m-%Y %H:%M:%S")
-        return formatted_time
 
-    def analyze(self):
-        """
-        Method utama untuk menganalisis dan mencetak laporan file.
-        """
-        print("\n" + "="*40)
-        print(f"Laporan Analisis File: {self.file_name}")
-        print("="*40)
+def analyze_file(file_path: str):
+    """
+    Fungsi helper untuk menganalisis satu file dengan penanganan error.
 
-        if self.__file_ada:
-            # Mendapatkan data analisis
-            size_kb = self.get_file_size(unit="KB")
-            mod_time = self.get_modification_time()
-
-            print(f"Nama File      : {self.file_name}")
-            print(f"Path File      : {self.file_path}")
-            print(f"Status File    : ADA")
-            print(f"Ukuran File    : {size_kb:.2f} KB ({self.__file_size_bytes} Bytes)")
-            print(f"Waktu Modifikasi: {mod_time}")
-        else:
-            print(f"File '{self.file_path}' tidak dapat dianalisis karena tidak ditemukan.")
-            print("Status File    : TIDAK ADA")
-
-        print("="*40)
+    Args:
+        file_path: Path ke file yang akan dianalisis.
+    """
+    try:
+        analyzer = FileAnalyzer(file_path)
+        analyzer.print_report()
+    except FileNotFoundError as e:
+        print(f"\n[ERROR] {e}")
+        print(f"Status File '{file_path}': TIDAK ADA")
 
 
 if __name__ == "__main__":
-    # 4.a & 4.b: Membuat objek untuk file yang ada ("dokumen.txt")
     print("--- Analisis Kasus 1: File ADA ---")
-    file_analyser_1 = FileAnalyzer("dokumen.txt")
-    file_analyser_1.analyze()
+    analyze_file("dokumen.txt")
 
-    # 4.c (Opsional): Membuat objek kedua untuk file yang tidak ada
     print("\n--- Analisis Kasus 2: File TIDAK ADA (Uji Error Handling) ---")
-    file_analyser_2 = FileAnalyzer("file_khayalan.txt")
-    file_analyser_2.analyze()   
+    analyze_file("file_khayalan.txt")
